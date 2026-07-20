@@ -19,18 +19,17 @@ public class ArchiveWarehouseUseCase implements ArchiveWarehouseOperation {
 
   @Override
   public void archive(Warehouse warehouse) {
-   
-	  // Find the warehouse to archive
-	    var existingWarehouse = warehouseStore.findByBusinessUnitCode(warehouse.businessUnitCode);
-	    
-	    if (existingWarehouse == null) {
-	      throw new WebApplicationException(
-	          "Warehouse with business unit code '" + warehouse.businessUnitCode + "' not found.", 
-	          404);
-	    }
+    // Find the warehouse to archive
+    var existingWarehouse = warehouseStore.findByBusinessUnitCode(warehouse.businessUnitCode);
+    
+    if (existingWarehouse == null) {
+      throw new WebApplicationException(
+          "Warehouse with business unit code '" + warehouse.businessUnitCode + "' not found.", 
+          404);
+    }
 
-	    // Set archive timestamp
-	    existingWarehouse.archivedAt = LocalDateTime.now();
-    warehouseStore.update(warehouse);
+    // Set archive timestamp
+    existingWarehouse.archivedAt = LocalDateTime.now();
+    warehouseStore.update(existingWarehouse);
   }
 }

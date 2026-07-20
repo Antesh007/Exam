@@ -1,15 +1,20 @@
 package com.fulfilment.application.monolith.warehouses.domain.usecases;
 
 import com.fulfilment.application.monolith.warehouses.domain.models.Warehouse;
+import com.fulfilment.application.monolith.warehouses.domain.ports.LocationResolver;
 import com.fulfilment.application.monolith.warehouses.domain.ports.ReplaceWarehouseOperation;
 import com.fulfilment.application.monolith.warehouses.domain.ports.WarehouseStore;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.WebApplicationException;
 
 @ApplicationScoped
 public class ReplaceWarehouseUseCase implements ReplaceWarehouseOperation {
 
   private final WarehouseStore warehouseStore;
+  
+  @Inject
+  private LocationResolver locationResolver;
 
   public ReplaceWarehouseUseCase(WarehouseStore warehouseStore) {
     this.warehouseStore = warehouseStore;
@@ -17,7 +22,8 @@ public class ReplaceWarehouseUseCase implements ReplaceWarehouseOperation {
 
   @Override
   public void replace(Warehouse newWarehouse) {
-	  // Find the existing warehouse to be replaced
+	  
+	// Find the existing warehouse to be replaced
 	    var existingWarehouse = warehouseStore.findByBusinessUnitCode(newWarehouse.businessUnitCode);
 	    
 	    if (existingWarehouse == null) {
@@ -39,6 +45,29 @@ public class ReplaceWarehouseUseCase implements ReplaceWarehouseOperation {
 	      throw new WebApplicationException(
 	          "New warehouse capacity (" + newWarehouse.capacity + ") cannot accommodate existing stock (" 
 	          + existingWarehouse.stock + ").", 
+	          422);
+	    }
+
+	    // Validation 3: Location must be valid
+	    var location = locationResolver.resolveByIdentifier(newWarehouse.location);
+	    if (location == null) {
+	      throw new WebApplicationException(
+	          "Location '" + newWarehouse.location + "' does not exist.", 
+	          422);
+	    }
+
+	    // Validation 4: Total capacity check at location (excluding current warehouse)
+	    int totalCapacityAtLocation = warehouseStore.getAll().stream()
+	        .filter(w -> w.location.equals(newWarehouse.location) 
+	            && w.archivedAt == null 
+	            && !w.businessUnitCode.equals(newWarehouse.businessUnitCode))
+	        .mapToInt(w -> w.capacity != null ? w.capacity : 0)
+	        .sum();
+	    
+	    if (totalCapacityAtLocation + newWarehouse.capacity > location.maxCapacity) {
+	      throw new WebApplicationException(
+	          "Warehouse capacity exceeds maximum total capacity for location '" + newWarehouse.location 
+	          + "'. Available capacity: " + (location.maxCapacity - totalCapacityAtLocation) + ".", 
 	          422);
 	    }
 
