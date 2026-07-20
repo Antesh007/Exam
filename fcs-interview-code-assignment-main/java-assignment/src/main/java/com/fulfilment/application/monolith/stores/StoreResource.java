@@ -28,7 +28,7 @@ import org.jboss.logging.Logger;
 public class StoreResource {
 
   @Inject LegacyStoreManagerGateway legacyStoreManagerGateway;
-
+ 
   private static final Logger LOGGER = Logger.getLogger(StoreResource.class.getName());
 
   @GET
@@ -54,8 +54,9 @@ public class StoreResource {
     }
 
     store.persist();
-
-    legacyStoreManagerGateway.createStoreOnLegacySystem(store);
+    
+    // After this method completes and transaction commits, the legacy system call happens
+    notifyLegacySystemCreate(store);
 
     return Response.ok(store).status(201).build();
   }
@@ -76,8 +77,9 @@ public class StoreResource {
 
     entity.name = updatedStore.name;
     entity.quantityProductsInStock = updatedStore.quantityProductsInStock;
-
-    legacyStoreManagerGateway.updateStoreOnLegacySystem(updatedStore);
+    
+ // After this method completes and transaction commits, the legacy system call happens
+    notifyLegacySystemUpdate(entity);
 
     return entity;
   }
@@ -103,8 +105,9 @@ public class StoreResource {
     if (entity.quantityProductsInStock != 0) {
       entity.quantityProductsInStock = updatedStore.quantityProductsInStock;
     }
-
-    legacyStoreManagerGateway.updateStoreOnLegacySystem(updatedStore);
+    
+ // After this method completes and transaction commits, the legacy system call happens
+    notifyLegacySystemUpdate(entity);
 
     return entity;
   }
@@ -120,6 +123,17 @@ public class StoreResource {
     entity.delete();
     return Response.status(204).build();
   }
+  
+//These methods execute AFTER the main transaction commits
+	@Transactional(Transactional.TxType.REQUIRES_NEW)
+	public void notifyLegacySystemCreate(Store store) {
+		legacyStoreManagerGateway.createStoreOnLegacySystem(store);
+	}
+
+	@Transactional(Transactional.TxType.REQUIRES_NEW)
+	public void notifyLegacySystemUpdate(Store store) {
+		legacyStoreManagerGateway.updateStoreOnLegacySystem(store);
+	}
 
   @Provider
   public static class ErrorMapper implements ExceptionMapper<Exception> {
