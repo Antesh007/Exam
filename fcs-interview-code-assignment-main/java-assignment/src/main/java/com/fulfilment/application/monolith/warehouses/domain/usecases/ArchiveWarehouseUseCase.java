@@ -1,7 +1,6 @@
 package com.fulfilment.application.monolith.warehouses.domain.usecases;
 
 import java.time.LocalDateTime;
-
 import com.fulfilment.application.monolith.warehouses.domain.models.Warehouse;
 import com.fulfilment.application.monolith.warehouses.domain.ports.ArchiveWarehouseOperation;
 import com.fulfilment.application.monolith.warehouses.domain.ports.WarehouseStore;

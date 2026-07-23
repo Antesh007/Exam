@@ -2,8 +2,12 @@ package com.fulfilment.application.monolith.stores;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fulfilment.application.monolith.event.StoreCreatedEvent;
+import com.fulfilment.application.monolith.event.StoreUpdatedEvent;
+
 import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
@@ -27,7 +31,13 @@ import org.jboss.logging.Logger;
 @Consumes("application/json")
 public class StoreResource {
 
-  @Inject LegacyStoreManagerGateway legacyStoreManagerGateway;
+	@Inject
+	Event<StoreCreatedEvent> createdEvent;
+
+	@Inject
+	Event<StoreUpdatedEvent> updatedEvent;
+  
+	@Inject LegacyStoreManagerGateway legacyStoreManagerGateway;
  
   private static final Logger LOGGER = Logger.getLogger(StoreResource.class.getName());
 
@@ -52,12 +62,8 @@ public class StoreResource {
     if (store.id != null) {
       throw new WebApplicationException("Id was invalidly set on request.", 422);
     }
-
-    store.persist();
-    
-    // After this method completes and transaction commits, the legacy system call happens
-    notifyLegacySystemCreate(store);
-
+    store.persist();    
+    createdEvent.fire(new StoreCreatedEvent(store));
     return Response.ok(store).status(201).build();
   }
 
@@ -65,22 +71,17 @@ public class StoreResource {
   @Path("{id}")
   @Transactional
   public Store update(Long id, Store updatedStore) {
+	  
     if (updatedStore.name == null) {
       throw new WebApplicationException("Store Name was not set on request.", 422);
     }
-
     Store entity = Store.findById(id);
-
     if (entity == null) {
       throw new WebApplicationException("Store with id of " + id + " does not exist.", 404);
     }
-
     entity.name = updatedStore.name;
     entity.quantityProductsInStock = updatedStore.quantityProductsInStock;
-    
- // After this method completes and transaction commits, the legacy system call happens
-    notifyLegacySystemUpdate(entity);
-
+    updatedEvent.fire(new StoreUpdatedEvent(entity));
     return entity;
   }
 
@@ -88,27 +89,21 @@ public class StoreResource {
   @Path("{id}")
   @Transactional
   public Store patch(Long id, Store updatedStore) {
+	  
     if (updatedStore.name == null) {
       throw new WebApplicationException("Store Name was not set on request.", 422);
     }
-
     Store entity = Store.findById(id);
-
     if (entity == null) {
       throw new WebApplicationException("Store with id of " + id + " does not exist.", 404);
     }
-
     if (entity.name != null) {
       entity.name = updatedStore.name;
     }
-
     if (entity.quantityProductsInStock != 0) {
       entity.quantityProductsInStock = updatedStore.quantityProductsInStock;
     }
-    
- // After this method completes and transaction commits, the legacy system call happens
-    notifyLegacySystemUpdate(entity);
-
+    updatedEvent.fire(new StoreUpdatedEvent(entity));
     return entity;
   }
 
@@ -123,17 +118,6 @@ public class StoreResource {
     entity.delete();
     return Response.status(204).build();
   }
-  
-//These methods execute AFTER the main transaction commits
-	@Transactional(Transactional.TxType.REQUIRES_NEW)
-	public void notifyLegacySystemCreate(Store store) {
-		legacyStoreManagerGateway.createStoreOnLegacySystem(store);
-	}
-
-	@Transactional(Transactional.TxType.REQUIRES_NEW)
-	public void notifyLegacySystemUpdate(Store store) {
-		legacyStoreManagerGateway.updateStoreOnLegacySystem(store);
-	}
 
   @Provider
   public static class ErrorMapper implements ExceptionMapper<Exception> {

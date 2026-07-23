@@ -12,12 +12,15 @@ import jakarta.ws.rs.WebApplicationException;
 public class CreateWarehouseUseCase implements CreateWarehouseOperation {
 
   private final WarehouseStore warehouseStore;
-  
-  @Inject
-  private LocationResolver locationResolver;
+  private final LocationResolver locationResolver;
 
-  public CreateWarehouseUseCase(WarehouseStore warehouseStore) {
-    this.warehouseStore = warehouseStore;
+  @Inject
+  public CreateWarehouseUseCase(
+          WarehouseStore warehouseStore,
+          LocationResolver locationResolver) {
+
+      this.warehouseStore = warehouseStore;
+      this.locationResolver = locationResolver;
   }
 
   @Override
